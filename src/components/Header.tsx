@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BuildingConfig, ZoneData } from '../types';
+import { User } from '../types/auth';
 import {
   Building,
   MapPin,
@@ -15,15 +16,21 @@ import {
   Check,
   Building2,
   X,
+  User as UserIcon,
+  LogOut,
+  Shield,
+  Briefcase,
 } from 'lucide-react';
 
 interface HeaderProps {
   config: BuildingConfig;
+  user: User | null;
   activeTab: string;
   onRefresh: () => void;
   onOpenSettings: () => void;
   onChangeBuilding: () => void;
   onSwitchToDemo: () => void;
+  onLogout: () => void;
   activeAlertCount: number;
   selectedFloor: number | 'all';
   onSelectFloor: (floor: number | 'all') => void;
@@ -32,17 +39,24 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   config,
+  user,
   activeTab,
   onRefresh,
   onOpenSettings,
   onChangeBuilding,
   onSwitchToDemo,
+  onLogout,
   activeAlertCount,
   selectedFloor,
   onSelectFloor,
   floorsList,
 }) => {
   const [showBuildingDropdown, setShowBuildingDropdown] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+
+  const userInitials = user?.name
+    ? user.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
+    : 'US';
 
   const getTabTitle = () => {
     switch (activeTab) {
@@ -88,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
         <p className="text-xs text-slate-500 mt-0.5 font-medium">{desc}</p>
       </div>
 
-      {/* Building Selector, Floor Selector, and Action Tools */}
+      {/* Building Selector, Floor Selector, User Profile & Action Tools */}
       <div className="flex items-center flex-wrap gap-2.5">
         {/* ========================================================================= */}
         {/* 1. BUILDING SELECTOR WITH CHANGE BUILDING DROPDOWN */}
@@ -221,7 +235,87 @@ export const Header: React.FC<HeaderProps> = ({
             <span>{activeAlertCount} Anomalies</span>
           </div>
         )}
+
+        {/* ========================================================================= */}
+        {/* 3. USER PROFILE AVATAR & DROPDOWN MENU */}
+        {/* ========================================================================= */}
+        {user && (
+          <div className="relative border-l border-slate-200 pl-2.5 ml-1">
+            <button
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center space-x-2 p-1 rounded-xl hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-slate-800 to-slate-900 text-white font-extrabold text-xs flex items-center justify-center border border-slate-700 shadow-2xs font-mono">
+                {userInitials}
+              </div>
+              <div className="hidden sm:block text-left text-xs leading-tight">
+                <span className="font-bold text-slate-900 block">{user.name}</span>
+                <span className="text-[10px] text-slate-500">{user.organization || 'Facility Team'}</span>
+              </div>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            {/* Profile Dropdown Card */}
+            {showProfileDropdown && (
+              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 z-50 space-y-3 animate-fadeIn text-left">
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-xs text-slate-900">{user.name}</span>
+                    {user.isDemo && (
+                      <span className="text-[9px] font-mono font-bold bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded">
+                        DEMO MODE
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-mono">{user.email}</p>
+                  <div className="pt-1 flex items-center space-x-1 text-[10px] text-emerald-800 font-bold">
+                    <Briefcase className="w-3 h-3 text-emerald-600" />
+                    <span>{user.role || 'Energy Manager'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <button
+                    onClick={() => {
+                      onOpenSettings();
+                      setShowProfileDropdown(false);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 text-slate-700 flex items-center space-x-2 transition-all cursor-pointer"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Account &amp; Settings</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onChangeBuilding();
+                      setShowProfileDropdown(false);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 text-slate-700 flex items-center space-x-2 transition-all cursor-pointer"
+                  >
+                    <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Building Setup</span>
+                  </button>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100">
+                  <button
+                    onClick={() => {
+                      setShowProfileDropdown(false);
+                      onLogout();
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 flex items-center space-x-2 transition-all cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );
 };
+

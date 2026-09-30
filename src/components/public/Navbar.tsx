@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Menu, X, ArrowRight, LayoutDashboard } from 'lucide-react';
+import { Zap, Menu, X, ArrowRight, LayoutDashboard, LogIn, User as UserIcon } from 'lucide-react';
+import { User } from '../../types/auth';
 
 interface NavbarProps {
   currentPath: string;
+  user?: User | null;
   onNavigate: (path: string) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentPath, onNavigate }) => {
+export const Navbar: React.FC<NavbarProps> = ({ currentPath, user, onNavigate }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -36,7 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath, onNavigate }) => {
         {/* Brand Logo */}
         <button
           onClick={() => onNavigate('/')}
-          className="flex items-center space-x-3 text-left group focus:outline-none"
+          className="flex items-center space-x-3 text-left group focus:outline-none cursor-pointer"
         >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
             <Zap className="w-5 h-5 text-white stroke-[2.5]" />
@@ -62,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath, onNavigate }) => {
               <button
                 key={link.path}
                 onClick={() => onNavigate(link.path)}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                   isActive
                     ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60 font-bold'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
@@ -74,23 +76,45 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath, onNavigate }) => {
           })}
         </nav>
 
-        {/* Right CTA Buttons: Try Demo + Set Up Building */}
+        {/* Right CTA Buttons: Sign In / Create Account vs Open Dashboard */}
         <div className="hidden md:flex items-center space-x-2.5">
-          <button
-            onClick={() => onNavigate('/onboarding')}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition-all cursor-pointer border border-slate-200 shadow-2xs"
-          >
-            <span>Set Up Building</span>
-          </button>
+          {user ? (
+            <>
+              <button
+                onClick={() => onNavigate('/onboarding')}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition-all cursor-pointer border border-slate-200 shadow-2xs"
+              >
+                <span>Building Setup</span>
+              </button>
 
-          <button
-            onClick={() => onNavigate('/dashboard')}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 transition-all shadow-md shadow-emerald-600/20 flex items-center space-x-1.5 group cursor-pointer"
-          >
-            <LayoutDashboard className="w-3.5 h-3.5 text-white" />
-            <span>Open Dashboard</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </button>
+              <button
+                onClick={() => onNavigate('/dashboard')}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 transition-all shadow-md shadow-emerald-600/20 flex items-center space-x-1.5 group cursor-pointer"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5 text-white" />
+                <span>Open Dashboard</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => onNavigate('/login')}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition-all cursor-pointer border border-slate-200 shadow-2xs flex items-center space-x-1"
+              >
+                <LogIn className="w-3.5 h-3.5 text-slate-600" />
+                <span>Sign In</span>
+              </button>
+
+              <button
+                onClick={() => onNavigate('/signup')}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 transition-all shadow-md shadow-emerald-600/20 flex items-center space-x-1.5 group cursor-pointer"
+              >
+                <span>Create Account</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Mobile Hamburger Button */}

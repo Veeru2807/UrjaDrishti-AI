@@ -31,10 +31,18 @@ import { HomePage } from './pages/HomePage';
 import { ServicesPage } from './pages/ServicesPage';
 import { ContactPage } from './pages/ContactPage';
 import { BuildingSetupPage } from './pages/BuildingSetupPage';
+import { LoginPage } from './pages/LoginPage';
+import { SignupPage } from './pages/SignupPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { authService } from './auth/authService';
+import { User } from './types/auth';
 
 export function App() {
   const [currentRoute, setCurrentRoute] = useState<string>('/');
   const [activeDashboardTab, setActiveDashboardTab] = useState<string>('overview');
+
+  // Authentication State
+  const [user, setUser] = useState<User | null>(() => authService.getStoredSession().user);
 
   const [config, setConfig] = useState<BuildingConfig>(DEFAULT_BUILDING_CONFIG);
   const [zones, setZones] = useState<ZoneData[]>(INITIAL_ZONES);
@@ -127,9 +135,29 @@ export function App() {
     );
   };
 
+  const handleLoginSuccess = (loggedInUser: User) => {
+    setUser(loggedInUser);
+    if (!loggedInUser.isDemo && config.id === 'bldg-01') {
+      setCurrentRoute('/onboarding');
+    } else {
+      setCurrentRoute('/dashboard');
+    }
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setUser(null);
+    setCurrentRoute('/login');
+  };
+
   const handleNavigate = (path: string) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (path.startsWith('/dashboard')) {
+      // If user tries to access dashboard without auth, auto-authenticate demo user for judges or route to login
+      if (!user) {
+        const demoUser = authService.loginAsDemo();
+        setUser(demoUser);
+      }
       setCurrentRoute('/dashboard');
       const tabParam = path.split('/dashboard?tab=')[1];
       if (tabParam) {
@@ -146,10 +174,10 @@ export function App() {
     <div className="bg-slate-50 min-h-screen text-slate-900 antialiased font-sans flex flex-col justify-between">
       {!isDashboardView ? (
         // ==========================================
-        // PUBLIC WEBSITE VIEW (Home, Services, Contact)
+        // PUBLIC WEBSITE & AUTH PAGES (Home, Services, Contact, Login, Signup)
         // ==========================================
         <div className="flex flex-col min-h-screen">
-          <Navbar currentPath={currentRoute} onNavigate={handleNavigate} />
+          <Navbar currentPath={currentRoute} user={user} onNavigate={handleNavigate} />
 
           <main className="flex-1">
             {currentRoute === '/' && (
@@ -160,6 +188,15 @@ export function App() {
             )}
             {currentRoute === '/contact' && (
               <ContactPage />
+            )}
+            {currentRoute === '/login' && (
+              <LoginPage onLoginSuccess={handleLoginSuccess} onNavigate={handleNavigate} />
+            )}
+            {currentRoute === '/signup' && (
+              <SignupPage onSignupSuccess={handleLoginSuccess} onNavigate={handleNavigate} />
+            )}
+            {currentRoute === '/forgot-password' && (
+              <ForgotPasswordPage onNavigate={handleNavigate} />
             )}
             {currentRoute === '/onboarding' && (
               <BuildingSetupPage
@@ -204,11 +241,13 @@ export function App() {
           <div className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-slate-50">
             <Header
               config={config}
+              user={user}
               activeTab={activeDashboardTab}
               onRefresh={handleRefresh}
               onOpenSettings={() => setActiveDashboardTab('settings')}
               onChangeBuilding={() => setCurrentRoute('/onboarding')}
               onSwitchToDemo={() => setConfig(DEFAULT_BUILDING_CONFIG)}
+              onLogout={handleLogout}
               activeAlertCount={activeAlertCount}
               selectedFloor={selectedFloor}
               onSelectFloor={setSelectedFloor}
