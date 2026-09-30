@@ -38,6 +38,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
   const [countryCode, setCountryCode] = useState('+91');
   const [otpStep, setOtpStep] = useState<1 | 2>(1);
   const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
+  const [currentOtp, setCurrentOtp] = useState<string>('');
+  const [resendTimer, setResendTimer] = useState<number>(0);
+
+  // Resend Countdown Effect
+  React.useEffect(() => {
+    let interval: any = null;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [resendTimer]);
 
   // Loading & Error states
   const [isLoading, setIsLoading] = useState(false);
@@ -93,17 +108,49 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
 
     setIsLoading(true);
     try {
-      const res = await authService.sendPhoneOtp(`${countryCode} ${cleanPhone}`);
+      const fullPhone = `${countryCode} ${cleanPhone}`;
+      const res = await authService.sendPhoneOtp(fullPhone);
       if (res.success) {
         setOtpStep(2);
-        setOtpValues(['1', '2', '3', '4', '5', '6']); // Pre-fill demo OTP for judge convenience
-        setSuccessMsg('Demo OTP generated: 123456');
+        setCurrentOtp(res.otp);
+        setOtpValues(['', '', '', '', '', '']); // Clear previous inputs for authentic feel
+        setResendTimer(60); // 60s resend cooldown
+        setSuccessMsg(`SMS Sent! Dynamic verification code generated for ${fullPhone}.`);
       }
     } catch (err) {
-      setErrorMsg('Failed to send verification code.');
+      setErrorMsg('Failed to send verification code. Please try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Resend OTP Handler
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+    setErrorMsg(null);
+    setIsLoading(true);
+    try {
+      const fullPhone = `${countryCode} ${phone.replace(/\D/g, '')}`;
+      const res = await authService.sendPhoneOtp(fullPhone);
+      if (res.success) {
+        setCurrentOtp(res.otp);
+        setOtpValues(['', '', '', '', '', '']);
+        setResendTimer(60);
+        setSuccessMsg(`New OTP resent to ${fullPhone}. Code updated!`);
+      }
+    } catch (err) {
+      setErrorMsg('Failed to resend OTP code.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Auto-Fill Code Helper
+  const handleAutoFillOtp = () => {
+    if (!currentOtp || currentOtp.length !== 6) return;
+    const digits = currentOtp.split('');
+    setOtpValues(digits);
+    setSuccessMsg('OTP Code auto-filled successfully! Click "Verify & Continue".');
   };
 
   // Handle Phone Verify OTP
@@ -113,7 +160,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
 
     const fullOtp = otpValues.join('');
     if (fullOtp.length !== 6) {
-      setErrorMsg('Please enter the 6-digit verification code.');
+      setErrorMsg('Please enter the full 6-digit verification code.');
       return;
     }
 
@@ -121,12 +168,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
     try {
       const res = await authService.verifyPhoneOtp(`${countryCode} ${phone}`, fullOtp);
       if (res.success && res.user) {
-        setSuccessMsg('Phone verified successfully! Redirecting...');
+        setSuccessMsg('Phone number verified! Logging in...');
         setTimeout(() => {
           onLoginSuccess(res.user!);
         }, 500);
       } else {
-        setErrorMsg(res.error || 'Invalid OTP. Please try again.');
+        setErrorMsg(res.error || 'Invalid OTP. Please check the code and try again.');
       }
     } catch (err) {
       setErrorMsg('Verification failed. Please try again.');
@@ -136,17 +183,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
   };
 
   const handleOtpDigitChange = (index: number, val: string) => {
+    // If pasted full 6 digit string
+    if (val.length >= 6 && /^\d+$/.test(val)) {
+      const pastedDigits = val.slice(0, 6).split('');
+      setOtpValues(pastedDigits);
+      const lastInput = document.getElementById(`otp-input-5`);
+      lastInput?.focus();
+      return;
+    }
+
     if (val.length > 1) {
       val = val.slice(-1);
     }
+    
+    // Only accept numeric digits
+    if (val && !/^\d$/.test(val)) return;
+
     const newOtp = [...otpValues];
     newOtp[index] = val;
     setOtpValues(newOtp);
 
-    // Auto-focus next input if value entered
+    // Auto-focus next input if digit entered
     if (val && index < 5) {
       const nextInput = document.getElementById(`otp-input-${index + 1}`);
       nextInput?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Move to previous on backspace if current is empty
+    if (e.key === 'Backspace' && !otpValues[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-input-${index - 1}`);
+      prevInput?.focus();
     }
   };
 
@@ -446,6 +514,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
                   </form>
                 ) : (
                   <form onSubmit={handleVerifyOtp} className="space-y-4">
+                    {/* Simulated Real-Time SMS Received Banner */}
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-r from-slate-900 to-teal-950 text-white border border-teal-500/30 shadow-md space-y-2 text-left animate-fadeIn">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center space-x-1.5 font-bold text-teal-400">
+                          <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping"></span>
+                          <span>📱 SMS Received on {countryCode} {phone}</span>
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">Just Now</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/10">
+                        <div>
+                          <p className="text-[11px] text-slate-300">
+                            Your UrjaDrishti verification code is: <strong className="text-emerald-300 font-mono text-sm tracking-wider">{currentOtp || '******'}</strong>
+                          </p>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Valid for 5 minutes • Do not share</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAutoFillOtp}
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[11px] shrink-0 transition-all cursor-pointer flex items-center space-x-1 shadow-xs"
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          <span>Auto-Fill</span>
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-700">
@@ -453,8 +548,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
                         </label>
                         <button
                           type="button"
-                          onClick={() => setOtpStep(1)}
-                          className="text-[11px] text-teal-700 font-bold hover:underline"
+                          onClick={() => {
+                            setOtpStep(1);
+                            setErrorMsg(null);
+                          }}
+                          className="text-[11px] text-teal-700 font-bold hover:underline cursor-pointer"
                         >
                           Change Number
                         </button>
@@ -467,22 +565,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
                             key={idx}
                             id={`otp-input-${idx}`}
                             type="text"
-                            maxLength={1}
+                            maxLength={6} // Allow paste up to 6 digits into first box
                             value={digit}
                             onChange={(e) => handleOtpDigitChange(idx, e.target.value)}
-                            className="w-11 h-12 text-center text-base font-extrabold font-mono bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 text-slate-900"
+                            onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                            className="w-11 h-12 text-center text-base font-extrabold font-mono bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 text-slate-900 transition-all"
                           />
                         ))}
                       </div>
 
                       <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
-                        <span>Demo OTP Code: <strong className="text-teal-700 font-mono">123456</strong></span>
+                        <span className="text-[11px] text-slate-500">
+                          {resendTimer > 0 ? (
+                            <span>Resend OTP code in <strong className="text-teal-700 font-mono">{resendTimer}s</strong></span>
+                          ) : (
+                            <span className="text-slate-600">Didn't receive code?</span>
+                          )}
+                        </span>
+
                         <button
                           type="button"
-                          onClick={() => setSuccessMsg('OTP Resent! Code: 123456')}
-                          className="text-emerald-700 font-bold hover:underline cursor-pointer"
+                          onClick={handleResendOtp}
+                          disabled={resendTimer > 0 || isLoading}
+                          className="text-teal-700 font-bold hover:underline cursor-pointer disabled:opacity-40 disabled:no-underline text-xs flex items-center space-x-1"
                         >
-                          Resend OTP
+                          <span>Resend OTP</span>
                         </button>
                       </div>
                     </div>
@@ -490,9 +597,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md flex items-center justify-center space-x-2 cursor-pointer transition-all disabled:opacity-60"
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center space-x-2 cursor-pointer transition-all disabled:opacity-60"
                     >
-                      {isLoading ? <span>Verifying...</span> : <span>Verify &amp; Continue</span>}
+                      {isLoading ? <span>Verifying OTP...</span> : <span>Verify &amp; Continue</span>}
                     </button>
                   </form>
                 )}
