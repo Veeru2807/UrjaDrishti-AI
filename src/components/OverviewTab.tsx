@@ -149,7 +149,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <Flame className="w-4 h-4 text-amber-500" />
           </div>
           <div className="mt-2.5 flex items-baseline space-x-1">
-            <span className="text-2xl font-extrabold text-slate-900 tracking-tight font-mono">4,820</span>
+            <span className="text-2xl font-extrabold text-slate-900 tracking-tight font-mono">
+              {todayKwh.toLocaleString()}
+            </span>
             <span className="text-xs text-slate-500 font-semibold">kWh</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
@@ -165,10 +167,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <IndianRupee className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="mt-2.5 flex items-baseline space-x-1">
-            <span className="text-2xl font-extrabold text-slate-900 tracking-tight font-mono">₹48,200</span>
+            <span className="text-2xl font-extrabold text-slate-900 tracking-tight font-mono">
+              ₹{estimatedCostToday.toLocaleString()}
+            </span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Estimated (₹10/kWh)</span>
+            <span>Estimated (₹{config.electricityTariff}/kWh)</span>
             <span className="text-teal-700 font-bold font-mono">TOD Tracked</span>
           </div>
         </div>
@@ -215,7 +219,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <Smile className="w-4 h-4 text-teal-600" />
           </div>
           <div className="mt-2.5 flex items-baseline space-x-1">
-            <span className="text-2xl font-extrabold text-slate-900 tracking-tight font-mono">89</span>
+            <span className="text-2xl font-extrabold text-slate-900 tracking-tight font-mono">{avgComfort}</span>
             <span className="text-xs text-slate-400 font-bold">/ 100</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[11px] text-emerald-700 font-bold font-mono">
@@ -231,7 +235,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <Sparkles className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="mt-2.5 flex items-baseline space-x-1">
-            <span className="text-2xl font-extrabold text-emerald-900 tracking-tight font-mono">₹6,800</span>
+            <span className="text-2xl font-extrabold text-emerald-900 tracking-tight font-mono">
+              ₹{savingsOpportunityMonth.toLocaleString()}
+            </span>
             <span className="text-[10px] text-emerald-700 font-bold">/mo*</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[11px] text-emerald-800 font-bold">
@@ -264,7 +270,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
         {/* CEO Narrative */}
         <p className="text-sm sm:text-base text-slate-800 font-medium leading-relaxed">
-          “Energy use is <strong className="text-amber-800 font-bold">8% above the expected baseline today</strong>, mainly due to higher HVAC consumption in <strong className="text-slate-900 font-bold">Zone B (2nd Floor Open Workspace)</strong>. Occupancy is currently <strong className="text-slate-900 font-bold">31%</strong>, while cooling demand remains high at full chiller capacity.”
+          “Energy use is <strong className="text-amber-800 font-bold">8% above the expected baseline today</strong>, mainly due to higher HVAC consumption in <strong className="text-slate-900 font-bold">{anomalyZones[0]?.name || 'Floor 2 Zone A'}</strong>. Average occupancy is currently <strong className="text-slate-900 font-bold">{avgOccupancy}%</strong>, while cooling demand remains high at full capacity.”
         </p>
 
         {/* Why it Matters & Recommended Action */}
@@ -283,7 +289,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               RECOMMENDED ACTION
             </span>
             <p className="text-xs text-emerald-900 leading-relaxed font-bold">
-              Review Zone B cooling schedule and adjust airflow dampers to match 31% occupancy.
+              Review {anomalyZones[0]?.name || 'Floor 2 Zone A'} cooling schedule and adjust airflow dampers to match {avgOccupancy}% occupancy.
             </p>
           </div>
         </div>
