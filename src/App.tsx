@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   DEFAULT_BUILDING_CONFIG,
   INITIAL_ZONES,
+  generateDynamicZones,
   generateHourlyData,
   generateHistoryData,
   SMART_RECOMMENDATIONS,
@@ -47,7 +48,7 @@ export function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const [config, setConfig] = useState<BuildingConfig>(DEFAULT_BUILDING_CONFIG);
-  const [zones, setZones] = useState<ZoneData[]>(INITIAL_ZONES);
+  const [zones, setZones] = useState<ZoneData[]>(() => generateDynamicZones(DEFAULT_BUILDING_CONFIG));
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>('z-2a');
   const [recommendations, setRecommendations] = useState<SmartRecommendation[]>(SMART_RECOMMENDATIONS);
@@ -62,8 +63,8 @@ export function App() {
     ? zones
     : zones.filter((z) => z.floor === selectedFloor);
 
-  // Generate hourly & historical series dynamically based on climate
-  const hourlyData = generateHourlyData(config.climateZone);
+  // Generate hourly & historical series dynamically based on building config
+  const hourlyData = generateHourlyData(config);
   const { sevenDays, thirtyDays } = generateHistoryData();
 
   // Dynamic Savings summary
@@ -210,6 +211,7 @@ export function App() {
               <BuildingSetupPage
                 onSelectBuilding={(newConfig) => {
                   setConfig(newConfig);
+                  setZones(generateDynamicZones(newConfig));
                   setCurrentRoute('/dashboard');
                 }}
                 onNavigate={handleNavigate}
@@ -254,7 +256,10 @@ export function App() {
               onRefresh={handleRefresh}
               onOpenSettings={() => setActiveDashboardTab('settings')}
               onChangeBuilding={() => setCurrentRoute('/onboarding')}
-              onSwitchToDemo={() => setConfig(DEFAULT_BUILDING_CONFIG)}
+              onSwitchToDemo={() => {
+                setConfig(DEFAULT_BUILDING_CONFIG);
+                setZones(generateDynamicZones(DEFAULT_BUILDING_CONFIG));
+              }}
               onLogout={handleLogout}
               onOpenProfile={() => setIsProfileOpen(true)}
               activeAlertCount={activeAlertCount}
@@ -337,8 +342,14 @@ export function App() {
               {activeDashboardTab === 'settings' && (
                 <SettingsTab
                   config={config}
-                  onChangeConfig={(newConfig) => setConfig(newConfig)}
-                  onResetDefaults={() => setConfig(DEFAULT_BUILDING_CONFIG)}
+                  onChangeConfig={(newConfig) => {
+                    setConfig(newConfig);
+                    setZones(generateDynamicZones(newConfig));
+                  }}
+                  onResetDefaults={() => {
+                    setConfig(DEFAULT_BUILDING_CONFIG);
+                    setZones(generateDynamicZones(DEFAULT_BUILDING_CONFIG));
+                  }}
                 />
               )}
             </main>

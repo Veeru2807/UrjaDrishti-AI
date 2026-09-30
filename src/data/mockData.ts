@@ -183,10 +183,106 @@ export const INITIAL_ZONES: ZoneData[] = [
   },
 ];
 
-// Generate 24 hours reading for today (with actuals up to hour 19 and forecast for 20-23)
-export function generateHourlyData(climateZone: string = 'Composite', currentHour: number = 19): HourlyReading[] {
+// Helper to generate dynamic zones matching user's custom building configuration
+export function generateDynamicZones(config: BuildingConfig): ZoneData[] {
+  // If it's the demo building, return the rich hand-crafted demo zones
+  if (config.isDemo || config.id === 'bldg-01') {
+    return INITIAL_ZONES;
+  }
+
+  const floorsCount = Math.max(1, config.floorsCount || 3);
+  const totalArea = Math.max(100, config.areaSqM || 2500);
+  const areaPerFloor = Math.round(totalArea / floorsCount);
+  const areaPerZone = Math.round(areaPerFloor / 2);
+  const climateMult = config.climateZone === 'Hot & Dry' ? 1.25 : config.climateZone === 'Cold' ? 0.65 : 1.0;
+  const occTargetPct = Math.min(95, Math.max(20, config.typicalOccupancy || 75));
+
+  const zones: ZoneData[] = [];
+  const zoneTypes = [
+    { name: 'Reception & Entrance Lobby', baseKwSqM: 0.016 },
+    { name: 'Open Workstations & Desks', baseKwSqM: 0.024 },
+    { name: 'Conference & Meeting Suites', baseKwSqM: 0.022 },
+    { name: 'Executive Offices & Boardroom', baseKwSqM: 0.028 },
+    { name: 'Operations & Server Control Hub', baseKwSqM: 0.035 },
+    { name: 'Cafeteria & Breakout Zone', baseKwSqM: 0.025 },
+  ];
+
+  let zoneCounter = 1;
+
+  for (let f = 1; f <= floorsCount; f++) {
+    // 2 zones per floor
+    for (let z = 0; z < 2; z++) {
+      const typeIdx = (zoneCounter - 1) % zoneTypes.length;
+      const zType = zoneTypes[typeIdx];
+      const zId = `z-${f}${z === 0 ? 'a' : 'b'}`;
+      const zName = `Floor ${f} ${z === 0 ? 'A' : 'B'} - ${zType.name}`;
+
+      // Calculate occupancy
+      const isAnomaly = (f === 2 && z === 0) || (f === 4 && z === 1);
+      const zoneOccPct = isAnomaly ? 8 : Math.round(occTargetPct * (0.85 + (z * 0.15)));
+      const maxCap = Math.max(10, Math.round(areaPerZone / 12));
+      const currOcc = Math.round((zoneOccPct / 100) * maxCap);
+
+      // Power calculation based on areaSqM and climate
+      const baseKw = areaPerZone * zType.baseKwSqM * climateMult;
+      const hvacKw = Math.round(baseKw * (isAnomaly ? 1.6 : 0.65) * 10) / 10;
+      const lightingKw = Math.round(baseKw * 0.22 * 10) / 10;
+      const equipmentKw = Math.round(baseKw * 0.28 * 10) / 10;
+      const totalKw = Math.round((hvacKw + lightingKw + equipmentKw) * 10) / 10;
+
+      let status: 'Normal' | 'Potentially wasting energy' = isAnomaly ? 'Potentially wasting energy' : 'Normal';
+      let comfortScore = isAnomaly ? 82 : Math.round(92 + (Math.sin(f + z) * 4));
+
+      zones.push({
+        id: zId,
+        floor: f,
+        name: zName,
+        areaSqM: areaPerZone,
+        occupancyPercent: zoneOccPct,
+        currentOccupants: currOcc,
+        maxCapacity: maxCap,
+        temperature: isAnomaly ? 22.4 : 24.2,
+        humidity: 50,
+        co2Ppm: isAnomaly ? 440 : 620,
+        hvacKw,
+        lightingKw,
+        equipmentKw,
+        totalKw,
+        comfortScore,
+        status,
+        hasAnomaly: isAnomaly,
+        anomalyDescription: isAnomaly
+          ? `${zName} has only ${zoneOccPct}% occupancy while HVAC is over-cooling at ${hvacKw} kW.`
+          : undefined,
+        anomalySavingKwhPerDay: isAnomaly ? Math.round(hvacKw * 0.45 * 8) : undefined,
+        anomalyCostImpactRupees: isAnomaly
+          ? Math.round(hvacKw * 0.45 * 8 * config.electricityTariff)
+          : undefined,
+        anomalyAction: isAnomaly ? 'Modulate VAV setpoint to 25°C in unoccupied blocks.' : undefined,
+      });
+
+      zoneCounter++;
+    }
+  }
+
+  return zones;
+}
+
+// Generate 24 hours reading for today scaling dynamically with BuildingConfig
+export function generateHourlyData(
+  configOrClimate: BuildingConfig | string = 'Composite',
+  currentHour: number = 19
+): HourlyReading[] {
   const data: HourlyReading[] = [];
-  const tempMultiplier = climateZone === 'Hot & Dry' ? 1.25 : climateZone === 'Cold' ? 0.6 : 1.0;
+  
+  const areaSqM = typeof configOrClimate === 'object' ? configOrClimate.areaSqM : 10000;
+  const climateZone = typeof configOrClimate === 'object' ? configOrClimate.climateZone : configOrClimate;
+  const typicalOccupancy = typeof configOrClimate === 'object' ? configOrClimate.typicalOccupancy : 72;
+
+  // Scale factor relative to 10,000 m² baseline demo
+  const areaScale = Math.max(0.08, areaSqM / 10000);
+  const tempMultiplier = climateZone === 'Hot & Dry' ? 1.25 : climateZone === 'Warm & Humid' ? 1.12 : climateZone === 'Cold' ? 0.65 : 1.0;
+  const occScale = (typicalOccupancy || 72) / 72;
 
   for (let h = 0; h < 24; h++) {
     const isPeak = h >= 18 && h <= 21; // Indian DISCOM peak 6 PM to 9 PM
@@ -206,19 +302,24 @@ export function generateHourlyData(climateZone: string = 'Composite', currentHou
     else if (h >= 20 && h <= 21) occ = 15;
     else occ = 4; // night security/cleaning
 
-    // HVAC follows outdoor temp + occupancy
-    const hvac = isWorkHours ? (18 + occ * 0.35 + (baseTemp - 24) * 2.2) : 10;
-    const lighting = isWorkHours ? (8 + occ * 0.08) : 2.5;
-    const equipment = (h >= 9 && h <= 18) ? (14 + occ * 0.1) : 6.0;
+    occ = Math.min(100, Math.round(occ * occScale));
+
+    // Base kW scaled by building area and climate
+    const baseHvac = isWorkHours ? (18 + occ * 0.35 + (baseTemp - 24) * 2.2) : 10;
+    const baseLighting = isWorkHours ? (8 + occ * 0.08) : 2.5;
+    const baseEquipment = (h >= 9 && h <= 18) ? (14 + occ * 0.1) : 6.0;
+
+    const hvac = baseHvac * areaScale * tempMultiplier;
+    const lighting = baseLighting * areaScale;
+    const equipment = baseEquipment * areaScale;
 
     const actual = hvac + lighting + equipment;
     // Baseline is unoptimized legacy profile (+18% higher)
-    const baseline = actual * 1.18 + (isPeak ? 12 : 3);
+    const baseline = actual * 1.18 + (isPeak ? 12 * areaScale : 3 * areaScale);
     // Predicted forecast
     const predicted = actual * (0.97 + Math.sin(h) * 0.04);
 
     const isForecast = h > currentHour;
-
     const hourString = h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
 
     data.push({

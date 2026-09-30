@@ -73,12 +73,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const anomalyZones = zones.filter((z) => z.hasAnomaly);
   const maxForecastKw = Math.max(...hourlyData.map((d) => d.actualKw));
 
-  // Calculated CEO KPIs
-  const todayKwh = 4820;
+  // Dynamically Calculated CEO KPIs based on user building config & savings
+  const todayKwh = savings.dailyActualKwh;
   const estimatedCostToday = Math.round(todayKwh * config.electricityTariff);
   const energyIntensityEpi = (todayKwh / config.areaSqM).toFixed(2);
-  const peakDemandKw = 184;
-  const savingsOpportunityMonth = 6800;
+  const peakDemandKw = Math.round(Math.max(...hourlyData.map((d) => d.actualKw)) * 10) / 10;
+  const savingsOpportunityMonth = Math.round(savings.annualMonetarySavingsRupees / 12);
 
   return (
     <div className="space-y-6">
@@ -93,19 +93,19 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </h1>
             <span className="hidden sm:inline-flex items-center space-x-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>LIVE DEMO</span>
+              <span>{config.isDemo ? 'LIVE DEMO' : 'LIVE MONITORING'}</span>
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 font-medium">
             <span className="font-bold text-slate-800">{config.name}</span>
             <span>•</span>
-            <span>{config.areaSqM.toLocaleString()} m² Commercial Office</span>
+            <span>{config.areaSqM.toLocaleString()} m² {config.buildingType || 'Commercial Office'}</span>
             <span>•</span>
             <span className="text-teal-700 font-semibold">{config.climateZone} Climate Zone</span>
             <span>•</span>
             <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
-              DEMO / SIMULATED DATA
+              {config.isDemo ? 'DEMO / SIMULATED DATA' : 'CONFIGURED FACILITY'}
             </span>
           </div>
         </div>
