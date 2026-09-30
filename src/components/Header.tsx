@@ -24,12 +24,14 @@ import {
 
 interface HeaderProps {
   config: BuildingConfig;
+  savedBuildings?: BuildingConfig[];
   user: User | null;
   activeTab: string;
   onRefresh: () => void;
   onOpenSettings: () => void;
   onChangeBuilding: () => void;
   onSwitchToDemo: () => void;
+  onSelectSavedBuilding?: (building: BuildingConfig) => void;
   onLogout: () => void;
   onOpenProfile?: () => void;
   activeAlertCount: number;
@@ -40,12 +42,14 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   config,
+  savedBuildings = [],
   user,
   activeTab,
   onRefresh,
   onOpenSettings,
   onChangeBuilding,
   onSwitchToDemo,
+  onSelectSavedBuilding,
   onLogout,
   onOpenProfile,
   activeAlertCount,
@@ -126,56 +130,75 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Building Switcher Dropdown */}
           {showBuildingDropdown && (
-            <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 z-50 space-y-2 animate-fadeIn text-left">
+            <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 z-50 space-y-3 animate-fadeIn text-left">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <span className="text-xs font-bold text-slate-900 font-mono uppercase">
-                  Building Selector
+                  Select Facility / Building
                 </span>
                 <button
                   onClick={() => setShowBuildingDropdown(false)}
-                  className="p-1 text-slate-400 hover:text-slate-600"
+                  className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Current Active Building Info */}
-              <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200 space-y-1 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-emerald-900">{config.name}</span>
-                  <span className="text-[10px] font-mono font-bold bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded">
-                    ACTIVE
-                  </span>
-                </div>
-                <p className="text-[11px] text-emerald-800">
-                  {config.floorsCount || 5} Floors • {config.areaSqM.toLocaleString()} m² • {config.climateZone}
-                </p>
+              {/* Saved Buildings List */}
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                <span className="text-[10px] font-bold text-slate-400 font-mono uppercase block px-1">
+                  Saved Facilities ({savedBuildings.length})
+                </span>
+                {savedBuildings.map((bldg) => {
+                  const isActive = bldg.id === config.id;
+                  return (
+                    <button
+                      key={bldg.id}
+                      onClick={() => {
+                        if (onSelectSavedBuilding) {
+                          onSelectSavedBuilding(bldg);
+                        }
+                        setShowBuildingDropdown(false);
+                      }}
+                      className={`w-full p-2.5 rounded-xl text-xs text-left transition-all cursor-pointer border flex items-center justify-between ${
+                        isActive
+                          ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950 font-bold shadow-2xs'
+                          : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
+                      }`}
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center space-x-1.5">
+                          <Building className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-700' : 'text-slate-500'}`} />
+                          <span className="font-extrabold">{bldg.name}</span>
+                          {bldg.isDemo && (
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-800 font-mono">DEMO</span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-mono pl-5">
+                          {bldg.areaSqM.toLocaleString()} m² • {bldg.floorsCount || 3} Floors • {bldg.climateZone}
+                        </p>
+                      </div>
+
+                      {isActive && (
+                        <span className="text-[9px] font-mono font-bold bg-emerald-600 text-white px-1.5 py-0.5 rounded shrink-0">
+                          ACTIVE ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Actions: Switch to Demo / Set Up New / Edit */}
-              <div className="space-y-1 pt-1">
-                {!config.isDemo && (
-                  <button
-                    onClick={() => {
-                      onSwitchToDemo();
-                      setShowBuildingDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 flex items-center space-x-2 transition-all cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Switch to UrjaDrishti Demo Office</span>
-                  </button>
-                )}
-
+              {/* Actions: Set Up New / Edit */}
+              <div className="space-y-1 pt-2 border-t border-slate-100">
                 <button
                   onClick={() => {
                     onChangeBuilding();
                     setShowBuildingDropdown(false);
                   }}
-                  className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center space-x-2 transition-all cursor-pointer"
+                  className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 flex items-center space-x-2 transition-all cursor-pointer shadow-2xs"
                 >
-                  <PlusCircle className="w-3.5 h-3.5 text-teal-600" />
-                  <span>Set Up / Onboard Another Building</span>
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>Onboard Another New Building</span>
                 </button>
 
                 <button
@@ -183,10 +206,10 @@ export const Header: React.FC<HeaderProps> = ({
                     onOpenSettings();
                     setShowBuildingDropdown(false);
                   }}
-                  className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center space-x-2 transition-all cursor-pointer"
+                  className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center space-x-2 transition-all cursor-pointer"
                 >
                   <Sliders className="w-3.5 h-3.5 text-slate-600" />
-                  <span>Edit Current Building Parameters</span>
+                  <span>Edit Active Building Parameters</span>
                 </button>
               </div>
             </div>

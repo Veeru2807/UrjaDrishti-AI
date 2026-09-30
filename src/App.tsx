@@ -47,13 +47,51 @@ export function App() {
   const [user, setUser] = useState<User | null>(() => authService.getStoredSession().user);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  const [config, setConfig] = useState<BuildingConfig>(DEFAULT_BUILDING_CONFIG);
-  const [zones, setZones] = useState<ZoneData[]>(() => generateDynamicZones(DEFAULT_BUILDING_CONFIG));
+  // Saved Multi-Buildings State with LocalStorage Persistence
+  const [savedBuildings, setSavedBuildings] = useState<BuildingConfig[]>(() => {
+    try {
+      const json = localStorage.getItem('urja_saved_buildings');
+      if (json) {
+        const parsed = JSON.parse(json);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [DEFAULT_BUILDING_CONFIG];
+  });
+
+  const [config, setConfig] = useState<BuildingConfig>(() => savedBuildings[0] || DEFAULT_BUILDING_CONFIG);
+  const [zones, setZones] = useState<ZoneData[]>(() => generateDynamicZones(savedBuildings[0] || DEFAULT_BUILDING_CONFIG));
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>('z-2a');
   const [recommendations, setRecommendations] = useState<SmartRecommendation[]>(SMART_RECOMMENDATIONS);
   const [flexibleLoads, setFlexibleLoads] = useState<FlexibleLoadItem[]>(FLEXIBLE_LOADS);
   const [retrofits] = useState<RetrofitItem[]>(RETROFIT_RECOMMENDATIONS);
+
+  // Helper to add or update a building in saved list
+  const handleSaveBuilding = (newBuilding: BuildingConfig) => {
+    setSavedBuildings((prev) => {
+      const existsIdx = prev.findIndex((b) => b.id === newBuilding.id || (b.name.toLowerCase() === newBuilding.name.toLowerCase() && !b.isDemo));
+      let updated: BuildingConfig[];
+      if (existsIdx >= 0) {
+        updated = [...prev];
+        updated[existsIdx] = newBuilding;
+      } else {
+        updated = [...prev, newBuilding];
+      }
+      try {
+        localStorage.setItem('urja_saved_buildings', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    setConfig(newBuilding);
+    setZones(generateDynamicZones(newBuilding));
+  };
+
+  // Helper to select an existing saved building
+  const handleSelectSavedBuilding = (selected: BuildingConfig) => {
+    setConfig(selected);
+    setZones(generateDynamicZones(selected));
+  };
 
   // Derive unique floors list
   const floorsList = Array.from(new Set(zones.map((z) => z.floor))).sort();
@@ -210,8 +248,7 @@ export function App() {
             {currentRoute === '/onboarding' && (
               <BuildingSetupPage
                 onSelectBuilding={(newConfig) => {
-                  setConfig(newConfig);
-                  setZones(generateDynamicZones(newConfig));
+                  handleSaveBuilding(newConfig);
                   setCurrentRoute('/dashboard');
                 }}
                 onNavigate={handleNavigate}
@@ -251,15 +288,14 @@ export function App() {
           <div className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-slate-50">
             <Header
               config={config}
+              savedBuildings={savedBuildings}
               user={user}
               activeTab={activeDashboardTab}
               onRefresh={handleRefresh}
               onOpenSettings={() => setActiveDashboardTab('settings')}
               onChangeBuilding={() => setCurrentRoute('/onboarding')}
-              onSwitchToDemo={() => {
-                setConfig(DEFAULT_BUILDING_CONFIG);
-                setZones(generateDynamicZones(DEFAULT_BUILDING_CONFIG));
-              }}
+              onSwitchToDemo={() => handleSelectSavedBuilding(DEFAULT_BUILDING_CONFIG)}
+              onSelectSavedBuilding={handleSelectSavedBuilding}
               onLogout={handleLogout}
               onOpenProfile={() => setIsProfileOpen(true)}
               activeAlertCount={activeAlertCount}
@@ -342,14 +378,8 @@ export function App() {
               {activeDashboardTab === 'settings' && (
                 <SettingsTab
                   config={config}
-                  onChangeConfig={(newConfig) => {
-                    setConfig(newConfig);
-                    setZones(generateDynamicZones(newConfig));
-                  }}
-                  onResetDefaults={() => {
-                    setConfig(DEFAULT_BUILDING_CONFIG);
-                    setZones(generateDynamicZones(DEFAULT_BUILDING_CONFIG));
-                  }}
+                  onChangeConfig={(newConfig) => handleSaveBuilding(newConfig)}
+                  onResetDefaults={() => handleSelectSavedBuilding(DEFAULT_BUILDING_CONFIG)}
                 />
               )}
             </main>
