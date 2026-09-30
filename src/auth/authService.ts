@@ -141,9 +141,9 @@ export const authService = {
   },
 
   /**
-   * Verify Phone OTP with expiry and attempt counting
+   * Verify Phone OTP with expiry, attempt counting, and user registration check
    */
-  async verifyPhoneOtp(phone: string, otp: string): Promise<{ success: boolean; user?: User; error?: string }> {
+  async verifyPhoneOtp(phone: string, otp: string): Promise<{ success: boolean; isNewUser?: boolean; user?: User; phone?: string; error?: string }> {
     await new Promise((r) => setTimeout(r, 600));
 
     const cleanPhone = phone.trim();
@@ -186,26 +186,16 @@ export const authService = {
     // OTP Verified! Clear active session
     activeOtpSession = null;
 
+    // Check if phone number is already registered
     const existing = REGISTERED_USERS.find((u) => u.phone === cleanPhone);
 
     if (existing) {
       this.saveSession(existing);
-      return { success: true, user: existing };
+      return { success: true, isNewUser: false, user: existing };
     }
 
-    const newUser: User = {
-      id: `usr-${Date.now()}`,
-      name: `User ${cleanPhone.slice(-4)}`,
-      email: `user.${cleanPhone.replace(/\D/g, '').slice(-4)}@urjadrishti.ai`,
-      phone: cleanPhone,
-      organization: 'Smart Building Operations',
-      role: 'Facility Manager',
-      isDemo: false,
-      createdAt: new Date().toISOString(),
-    };
-
-    this.saveSession(newUser);
-    return { success: true, user: newUser };
+    // Un-registered new phone number -> Requires Registration step!
+    return { success: true, isNewUser: true, phone: cleanPhone };
   },
 
   async registerUser(params: {

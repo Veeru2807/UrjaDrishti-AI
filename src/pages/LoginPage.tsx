@@ -36,10 +36,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
   // Phone form state
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
-  const [otpStep, setOtpStep] = useState<1 | 2>(1);
+  const [otpStep, setOtpStep] = useState<1 | 2 | 3>(1);
   const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
   const [currentOtp, setCurrentOtp] = useState<string>('');
   const [resendTimer, setResendTimer] = useState<number>(0);
+
+  // Phone Registration Step 3 State
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regOrg, setRegOrg] = useState('');
+  const [regRole, setRegRole] = useState<any>('Facility Manager');
 
   // Resend Countdown Effect
   React.useEffect(() => {
@@ -113,7 +119,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
       if (res.success) {
         setOtpStep(2);
         setCurrentOtp(res.otp);
-        setOtpValues(['', '', '', '', '', '']); // Clear previous inputs for authentic feel
+        setOtpValues(['', '', '', '', '', '']); // Clear previous inputs
         setResendTimer(60); // 60s resend cooldown
         setSuccessMsg(`SMS Sent! Dynamic verification code generated for ${fullPhone}.`);
       }
@@ -166,17 +172,68 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
 
     setIsLoading(true);
     try {
-      const res = await authService.verifyPhoneOtp(`${countryCode} ${phone}`, fullOtp);
-      if (res.success && res.user) {
-        setSuccessMsg('Phone number verified! Logging in...');
-        setTimeout(() => {
-          onLoginSuccess(res.user!);
-        }, 500);
+      const fullPhone = `${countryCode} ${phone.replace(/\D/g, '')}`;
+      const res = await authService.verifyPhoneOtp(fullPhone, fullOtp);
+      
+      if (res.success) {
+        if (res.isNewUser) {
+          // Phone number verified, but user is NEW -> Route to Registration Details Step 3
+          setSuccessMsg('Phone verified! Please enter your registration details to finish creating your account.');
+          setOtpStep(3);
+        } else if (res.user) {
+          // Existing user -> Directly log in
+          setSuccessMsg('Phone number verified! Logging in...');
+          setTimeout(() => {
+            onLoginSuccess(res.user!);
+          }, 500);
+        }
       } else {
         setErrorMsg(res.error || 'Invalid OTP. Please check the code and try again.');
       }
     } catch (err) {
       setErrorMsg('Verification failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle Phone Registration Details Submit (Step 3)
+  const handlePhoneRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+
+    if (!regName.trim()) {
+      setErrorMsg('Please enter your full name.');
+      return;
+    }
+    if (!regEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) {
+      setErrorMsg('Please enter a valid work email address.');
+      return;
+    }
+    if (!regOrg.trim()) {
+      setErrorMsg('Please enter your company or organization name.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const fullPhone = `${countryCode} ${phone.replace(/\D/g, '')}`;
+      const res = await authService.registerUser({
+        name: regName,
+        email: regEmail,
+        organization: regOrg,
+        phone: fullPhone,
+        role: regRole,
+      });
+
+      if (res.success && res.user) {
+        setSuccessMsg('Account registered successfully! Loading workspace...');
+        setTimeout(() => {
+          onLoginSuccess(res.user);
+        }, 500);
+      }
+    } catch (err) {
+      setErrorMsg('Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -512,7 +569,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
                       {isLoading ? <span>Sending OTP...</span> : <span>Send Verification Code</span>}
                     </button>
                   </form>
-                ) : (
+                ) : otpStep === 2 ? (
                   <form onSubmit={handleVerifyOtp} className="space-y-4">
                     {/* Simulated Real-Time SMS Received Banner */}
                     <div className="p-3.5 rounded-2xl bg-gradient-to-r from-slate-900 to-teal-950 text-white border border-teal-500/30 shadow-md space-y-2 text-left animate-fadeIn">
@@ -600,6 +657,78 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
                       className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center space-x-2 cursor-pointer transition-all disabled:opacity-60"
                     >
                       {isLoading ? <span>Verifying OTP...</span> : <span>Verify &amp; Continue</span>}
+                    </button>
+                  </form>
+                ) : (
+                  /* STEP 3: NEW USER REGISTRATION FORM */
+                  <form onSubmit={handlePhoneRegisterSubmit} className="space-y-3 animate-fadeIn text-left">
+                    <div className="p-3 rounded-xl bg-teal-50 border border-teal-200 text-teal-900 text-xs flex items-center justify-between">
+                      <div>
+                        <span className="font-bold block">Mobile Number Verified</span>
+                        <span className="font-mono text-[11px] text-teal-700">{countryCode} {phone}</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px]">
+                        Verified ✓
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700">Full Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
+                        placeholder="e.g. Veer Singh"
+                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-teal-500 text-slate-800"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700">Work Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        placeholder="you@company.com"
+                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-teal-500 text-slate-800"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700">Company / Organization</label>
+                      <input
+                        type="text"
+                        required
+                        value={regOrg}
+                        onChange={(e) => setRegOrg(e.target.value)}
+                        placeholder="e.g. Acme Tech Solutions"
+                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-teal-500 text-slate-800"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700">Role / Job Position</label>
+                      <select
+                        value={regRole}
+                        onChange={(e) => setRegRole(e.target.value as any)}
+                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-teal-500 text-slate-800 font-medium"
+                      >
+                        <option value="Facility Manager">Facility Manager</option>
+                        <option value="Energy Manager">Energy Manager</option>
+                        <option value="Building Owner / CEO">Building Owner / CEO</option>
+                        <option value="Sustainability Director">Sustainability Director</option>
+                        <option value="Operations Engineer">Operations Engineer</option>
+                      </select>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full py-2.5 mt-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md flex items-center justify-center space-x-2 cursor-pointer transition-all disabled:opacity-60"
+                    >
+                      {isLoading ? <span>Creating Account...</span> : <span>Complete Registration &amp; Setup Building →</span>}
                     </button>
                   </form>
                 )}
