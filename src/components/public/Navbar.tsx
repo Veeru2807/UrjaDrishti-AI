@@ -6,11 +6,14 @@ interface NavbarProps {
   currentPath: string;
   user?: User | null;
   onNavigate: (path: string) => void;
+  onOpenProfile?: () => void;
+  onLogout?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentPath, user, onNavigate }) => {
+export const Navbar: React.FC<NavbarProps> = ({ currentPath, user, onNavigate, onOpenProfile, onLogout }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,6 +22,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath, user, onNavigate })
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const userInitials = user?.name
+    ? user.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
+    : 'US';
 
   const navLinks = [
     { label: 'Home', path: '/' },
@@ -76,26 +83,75 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath, user, onNavigate })
           })}
         </nav>
 
-        {/* Right CTA Buttons: Sign In / Create Account vs Open Dashboard */}
+        {/* Right CTA Buttons: Sign In / Create Account vs Profile Menu */}
         <div className="hidden md:flex items-center space-x-2.5">
           {user ? (
-            <>
-              <button
-                onClick={() => onNavigate('/onboarding')}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition-all cursor-pointer border border-slate-200 shadow-2xs"
-              >
-                <span>Building Setup</span>
-              </button>
+            <div className="relative">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => onNavigate('/onboarding')}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition-all cursor-pointer border border-slate-200 shadow-2xs"
+                >
+                  <span>Building Setup</span>
+                </button>
 
-              <button
-                onClick={() => onNavigate('/dashboard')}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 transition-all shadow-md shadow-emerald-600/20 flex items-center space-x-1.5 group cursor-pointer"
-              >
-                <LayoutDashboard className="w-3.5 h-3.5 text-white" />
-                <span>Open Dashboard</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            </>
+                <button
+                  onClick={() => onNavigate('/dashboard')}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 transition-all shadow-md shadow-emerald-600/20 flex items-center space-x-1.5 group cursor-pointer"
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5 text-white" />
+                  <span>Open Dashboard</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+
+                {/* User Profile Avatar Button */}
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="w-9 h-9 rounded-xl bg-slate-900 text-white font-extrabold text-xs flex items-center justify-center border border-slate-700 shadow-sm hover:scale-105 transition-all cursor-pointer font-mono ml-1"
+                  title={user.name}
+                >
+                  {userInitials}
+                </button>
+              </div>
+
+              {/* User Dropdown Menu */}
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 z-50 space-y-2 animate-fadeIn text-left">
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="font-extrabold text-xs text-slate-900 block">{user.name}</span>
+                    <span className="text-[10px] text-slate-500 font-mono block">{user.email}</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    {onOpenProfile && (
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onOpenProfile();
+                        }}
+                        className="w-full px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 flex items-center space-x-2 transition-all cursor-pointer"
+                      >
+                        <UserIcon className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>My Profile &amp; Account</span>
+                      </button>
+                    )}
+
+                    {onLogout && (
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onLogout();
+                        }}
+                        className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 flex items-center space-x-2 transition-all cursor-pointer"
+                      >
+                        <LogIn className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Sign Out / Logout</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             <>
               <button

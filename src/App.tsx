@@ -34,6 +34,7 @@ import { BuildingSetupPage } from './pages/BuildingSetupPage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { UserProfileModal } from './components/UserProfileModal';
 import { authService } from './auth/authService';
 import { User } from './types/auth';
 
@@ -43,6 +44,7 @@ export function App() {
 
   // Authentication State
   const [user, setUser] = useState<User | null>(() => authService.getStoredSession().user);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const [config, setConfig] = useState<BuildingConfig>(DEFAULT_BUILDING_CONFIG);
   const [zones, setZones] = useState<ZoneData[]>(INITIAL_ZONES);
@@ -177,7 +179,13 @@ export function App() {
         // PUBLIC WEBSITE & AUTH PAGES (Home, Services, Contact, Login, Signup)
         // ==========================================
         <div className="flex flex-col min-h-screen">
-          <Navbar currentPath={currentRoute} user={user} onNavigate={handleNavigate} />
+          <Navbar
+            currentPath={currentRoute}
+            user={user}
+            onNavigate={handleNavigate}
+            onOpenProfile={() => setIsProfileOpen(true)}
+            onLogout={handleLogout}
+          />
 
           <main className="flex-1">
             {currentRoute === '/' && (
@@ -248,6 +256,7 @@ export function App() {
               onChangeBuilding={() => setCurrentRoute('/onboarding')}
               onSwitchToDemo={() => setConfig(DEFAULT_BUILDING_CONFIG)}
               onLogout={handleLogout}
+              onOpenProfile={() => setIsProfileOpen(true)}
               activeAlertCount={activeAlertCount}
               selectedFloor={selectedFloor}
               onSelectFloor={setSelectedFloor}
@@ -335,6 +344,17 @@ export function App() {
             </main>
           </div>
         </div>
+      )}
+
+      {/* Global User Profile Modal */}
+      {user && (
+        <UserProfileModal
+          user={user}
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          onLogout={handleLogout}
+          onUpdateUser={(updatedUser) => setUser(updatedUser)}
+        />
       )}
     </div>
   );

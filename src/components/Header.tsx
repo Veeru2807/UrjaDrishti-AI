@@ -31,6 +31,7 @@ interface HeaderProps {
   onChangeBuilding: () => void;
   onSwitchToDemo: () => void;
   onLogout: () => void;
+  onOpenProfile?: () => void;
   activeAlertCount: number;
   selectedFloor: number | 'all';
   onSelectFloor: (floor: number | 'all') => void;
@@ -46,6 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
   onChangeBuilding,
   onSwitchToDemo,
   onLogout,
+  onOpenProfile,
   activeAlertCount,
   selectedFloor,
   onSelectFloor,
@@ -275,6 +277,19 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
 
                 <div className="space-y-1">
+                  {onOpenProfile && (
+                    <button
+                      onClick={() => {
+                        setShowProfileDropdown(false);
+                        onOpenProfile();
+                      }}
+                      className="w-full px-3 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 text-slate-700 flex items-center space-x-2 transition-all cursor-pointer"
+                    >
+                      <UserIcon className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>My Profile &amp; Details</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       onOpenSettings();
